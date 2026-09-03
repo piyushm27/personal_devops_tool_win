@@ -10,8 +10,58 @@
         Background="#1E1E1E">
 
     <Window.Resources>
-        <DataTemplate DataType="{x:Type models:TaskItem}">
-            <Border Background="#3C3C3F" CornerRadius="4" Padding="8" Margin="0,0,0,6">
+        <Style x:Key="CardBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="#3C3C3F" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="8" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+
+        <Style x:Key="MoveButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+        </Style>
+
+        <!-- Parked cards can only move back to To Do; that's the sole way
+             out of the WIP-overflow "park it instead" flow. -->
+        <DataTemplate x:Key="ParkedCardTemplate" DataType="{x:Type models:TaskItem}">
+            <Border Style="{StaticResource CardBorderStyle}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="To Do →" Style="{StaticResource MoveButtonStyle}"
+                            Command="{Binding DataContext.MoveToToDoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            CommandParameter="{Binding}" />
+                    <TextBlock Text="{Binding Title}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" />
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- Moving to In Progress is gated by the WIP limit in MainViewModel. -->
+        <DataTemplate x:Key="ToDoCardTemplate" DataType="{x:Type models:TaskItem}">
+            <Border Style="{StaticResource CardBorderStyle}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Start →" Style="{StaticResource MoveButtonStyle}"
+                            Command="{Binding DataContext.MoveToInProgressCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            CommandParameter="{Binding}" />
+                    <TextBlock Text="{Binding Title}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" />
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="InProgressCardTemplate" DataType="{x:Type models:TaskItem}">
+            <Border Style="{StaticResource CardBorderStyle}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Done →" Style="{StaticResource MoveButtonStyle}"
+                            Command="{Binding DataContext.MoveToDoneCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            CommandParameter="{Binding}" />
+                    <TextBlock Text="{Binding Title}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" />
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- Done is a terminal state for now; no move button. -->
+        <DataTemplate x:Key="DoneCardTemplate" DataType="{x:Type models:TaskItem}">
+            <Border Style="{StaticResource CardBorderStyle}">
                 <TextBlock Text="{Binding Title}" Foreground="White" TextWrapping="Wrap" />
             </Border>
         </DataTemplate>
@@ -46,7 +96,28 @@
         </Style>
     </Window.Resources>
 
-    <Grid Margin="12">
+    <DockPanel Margin="12">
+        <Border DockPanel.Dock="Top" Background="#2D2D30" CornerRadius="6" Padding="8" Margin="0,0,0,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0"
+                         Text="{Binding NewTaskTitle, UpdateSourceTrigger=PropertyChanged}"
+                         Background="#3C3C3F" Foreground="White" BorderThickness="0"
+                         Padding="6" VerticalContentAlignment="Center"
+                         CaretBrush="White">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Return" Command="{Binding AddTaskCommand}" />
+                    </TextBox.InputBindings>
+                </TextBox>
+                <Button Grid.Column="1" Content="Add Task" Command="{Binding AddTaskCommand}"
+                        Margin="8,0,0,0" Padding="12,6" />
+            </Grid>
+        </Border>
+
+    <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="*" />
@@ -59,7 +130,7 @@
             <DockPanel LastChildFill="True">
                 <TextBlock DockPanel.Dock="Top" Text="Parked" Style="{StaticResource ColumnHeaderStyle}" Foreground="{StaticResource ParkedAccentBrush}" />
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding ParkedTasks}" />
+                    <ItemsControl ItemsSource="{Binding ParkedTasks}" ItemTemplate="{StaticResource ParkedCardTemplate}" />
                 </ScrollViewer>
             </DockPanel>
         </Border>
@@ -67,9 +138,15 @@
         <!-- To Do -->
         <Border Grid.Column="1" Style="{StaticResource ColumnBorderStyle}" BorderBrush="{StaticResource ToDoAccentBrush}" Background="{StaticResource ToDoBackgroundBrush}">
             <DockPanel LastChildFill="True">
-                <TextBlock DockPanel.Dock="Top" Text="To Do" Style="{StaticResource ColumnHeaderStyle}" Foreground="{StaticResource ToDoAccentBrush}" />
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                    <TextBlock Text="To Do" Style="{StaticResource ColumnHeaderStyle}" Foreground="{StaticResource ToDoAccentBrush}" />
+                    <TextBlock Text="limit" Foreground="#CCCCCC" FontSize="11" VerticalAlignment="Center" Margin="6,0,4,8" />
+                    <TextBox Text="{Binding MaxToDo, UpdateSourceTrigger=PropertyChanged}"
+                             Width="28" Background="#3C3C3F" Foreground="White" BorderThickness="0"
+                             TextAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,8" CaretBrush="White" />
+                </StackPanel>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding ToDoTasks}" />
+                    <ItemsControl ItemsSource="{Binding ToDoTasks}" ItemTemplate="{StaticResource ToDoCardTemplate}" />
                 </ScrollViewer>
             </DockPanel>
         </Border>
@@ -77,9 +154,15 @@
         <!-- In Progress -->
         <Border Grid.Column="2" Style="{StaticResource ColumnBorderStyle}" BorderBrush="{StaticResource InProgressAccentBrush}" Background="{StaticResource InProgressBackgroundBrush}">
             <DockPanel LastChildFill="True">
-                <TextBlock DockPanel.Dock="Top" Text="In Progress" Style="{StaticResource ColumnHeaderStyle}" Foreground="{StaticResource InProgressAccentBrush}" />
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                    <TextBlock Text="In Progress" Style="{StaticResource ColumnHeaderStyle}" Foreground="{StaticResource InProgressAccentBrush}" />
+                    <TextBlock Text="limit" Foreground="#CCCCCC" FontSize="11" VerticalAlignment="Center" Margin="6,0,4,8" />
+                    <TextBox Text="{Binding MaxInProgress, UpdateSourceTrigger=PropertyChanged}"
+                             Width="28" Background="#3C3C3F" Foreground="White" BorderThickness="0"
+                             TextAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,8" CaretBrush="White" />
+                </StackPanel>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding InProgressTasks}" />
+                    <ItemsControl ItemsSource="{Binding InProgressTasks}" ItemTemplate="{StaticResource InProgressCardTemplate}" />
                 </ScrollViewer>
             </DockPanel>
         </Border>
@@ -89,9 +172,10 @@
             <DockPanel LastChildFill="True">
                 <TextBlock DockPanel.Dock="Top" Text="Done" Style="{StaticResource ColumnHeaderStyle}" Foreground="{StaticResource DoneAccentBrush}" />
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding DoneTasks}" />
+                    <ItemsControl ItemsSource="{Binding DoneTasks}" ItemTemplate="{StaticResource DoneCardTemplate}" />
                 </ScrollViewer>
             </DockPanel>
         </Border>
     </Grid>
+    </DockPanel>
 </Window>

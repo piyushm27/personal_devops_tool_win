@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace KanbanApp.Models;
@@ -14,6 +15,7 @@ public partial class TaskItem : ObservableObject
     [ObservableProperty]
     private ColumnType column;
 
+    [JsonConstructor]
     public TaskItem(string title, ColumnType column)
     {
         this.title = title;

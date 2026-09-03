@@ -1,13 +1,22 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Linq;
+using System.Windows;
 using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using KanbanApp.Models;
+using KanbanApp.Services;
+using KanbanApp.Views;
 
 namespace KanbanApp.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
+    private readonly TaskStorageService _taskStorage = new();
+    private readonly SettingsService _settingsService = new();
+
     public ObservableCollection<TaskItem> Tasks { get; } = new();
 
     public ICollectionView ToDoTasks { get; }
@@ -15,19 +24,78 @@ public partial class MainViewModel : ObservableObject
     public ICollectionView DoneTasks { get; }
     public ICollectionView ParkedTasks { get; }
 
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AddTaskCommand))]
+    private string newTaskTitle = string.Empty;
+
+    [ObservableProperty]
+    private int maxInProgress = 3;
+
+    [ObservableProperty]
+    private int maxToDo = 3;
+
     public MainViewModel()
     {
-        // Sample data for now; replaced by JSON load/save in a later step.
-        Tasks.Add(new TaskItem("Set up project structure", ColumnType.Done));
-        Tasks.Add(new TaskItem("Wire up data binding", ColumnType.InProgress));
-        Tasks.Add(new TaskItem("Add move buttons", ColumnType.ToDo));
-        Tasks.Add(new TaskItem("Write WIP limit logic", ColumnType.ToDo));
+        var settings = _settingsService.Load();
+        maxToDo = settings.MaxToDo;
+        maxInProgress = settings.MaxInProgress;
+        _settingsService.Save(settings);
+
+        Tasks.CollectionChanged += Tasks_CollectionChanged;
+
+        var loadedTasks = _taskStorage.Load();
+        if (loadedTasks.Count > 0)
+        {
+            foreach (var task in loadedTasks)
+            {
+                Tasks.Add(task);
+            }
+        }
+        else
+        {
+            // First run: seed a few sample tasks so the board isn't empty.
+            Tasks.Add(new TaskItem("Set up project structure", ColumnType.Done));
+            Tasks.Add(new TaskItem("Wire up data binding", ColumnType.InProgress));
+            Tasks.Add(new TaskItem("Add move buttons", ColumnType.ToDo));
+            Tasks.Add(new TaskItem("Write WIP limit logic", ColumnType.ToDo));
+        }
 
         ToDoTasks = CreateFilteredView(ColumnType.ToDo);
         InProgressTasks = CreateFilteredView(ColumnType.InProgress);
         DoneTasks = CreateFilteredView(ColumnType.Done);
         ParkedTasks = CreateFilteredView(ColumnType.Parked);
     }
+
+    private void Tasks_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems is not null)
+        {
+            foreach (TaskItem task in e.NewItems)
+            {
+                task.PropertyChanged += Task_PropertyChanged;
+            }
+        }
+
+        if (e.OldItems is not null)
+        {
+            foreach (TaskItem task in e.OldItems)
+            {
+                task.PropertyChanged -= Task_PropertyChanged;
+            }
+        }
+
+        SaveTasks();
+    }
+
+    private void Task_PropertyChanged(object? sender, PropertyChangedEventArgs e) => SaveTasks();
+
+    private void SaveTasks() => _taskStorage.Save(Tasks);
+
+    partial void OnMaxToDoChanged(int value) =>
+        _settingsService.Save(new AppSettings { MaxToDo = value, MaxInProgress = MaxInProgress });
+
+    partial void OnMaxInProgressChanged(int value) =>
+        _settingsService.Save(new AppSettings { MaxToDo = MaxToDo, MaxInProgress = value });
 
     private ICollectionView CreateFilteredView(ColumnType column)
     {
@@ -43,5 +111,99 @@ public partial class MainViewModel : ObservableObject
         }
 
         return view;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanAddTask))]
+    private void AddTask()
+    {
+        var column = ToDoHasRoom() ? ColumnType.ToDo : ColumnType.Parked;
+        Tasks.Add(new TaskItem(NewTaskTitle.Trim(), column));
+        NewTaskTitle = string.Empty;
+
+        if (column == ColumnType.Parked)
+        {
+            MessageBox.Show(
+                $"To Do is at your limit of {MaxToDo}. This task was parked instead.",
+                "To Do limit reached",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+    }
+
+    private bool CanAddTask() => !string.IsNullOrWhiteSpace(NewTaskTitle);
+
+    private bool ToDoHasRoom() => Tasks.Count(t => t.Column == ColumnType.ToDo) < MaxToDo;
+
+    [RelayCommand]
+    private void MoveToInProgress(TaskItem task)
+    {
+        int inProgressCount = Tasks.Count(t => t.Column == ColumnType.InProgress);
+        if (inProgressCount < MaxInProgress)
+        {
+            task.Column = ColumnType.InProgress;
+            return;
+        }
+
+        var inProgressTasks = Tasks.Where(t => t.Column == ColumnType.InProgress).ToList();
+        var dialog = new WipLimitDialog(inProgressTasks, MaxInProgress)
+        {
+            Owner = Application.Current.MainWindow
+        };
+
+        if (dialog.ShowDialog() != true || dialog.SelectedTask is null)
+        {
+            return;
+        }
+
+        if (dialog.MarkAsDone)
+        {
+            dialog.SelectedTask.Column = ColumnType.Done;
+        }
+        else
+        {
+            RequeueToToDo(dialog.SelectedTask, dialog.UpdatedTitle);
+        }
+
+        task.Column = ColumnType.InProgress;
+    }
+
+    private void RequeueToToDo(TaskItem task, string? updatedTitle)
+    {
+        if (!string.IsNullOrWhiteSpace(updatedTitle))
+        {
+            task.Title = updatedTitle;
+        }
+
+        if (ToDoHasRoom())
+        {
+            task.Column = ColumnType.ToDo;
+            return;
+        }
+
+        task.Column = ColumnType.Parked;
+        MessageBox.Show(
+            $"To Do is also at your limit of {MaxToDo}, so this task was parked instead.",
+            "To Do limit reached",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    [RelayCommand]
+    private void MoveToDone(TaskItem task) => task.Column = ColumnType.Done;
+
+    [RelayCommand]
+    private void MoveToToDo(TaskItem task)
+    {
+        if (!ToDoHasRoom())
+        {
+            MessageBox.Show(
+                $"To Do is at your limit of {MaxToDo}. This task will stay parked for now.",
+                "To Do limit reached",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        task.Column = ColumnType.ToDo;
     }
 }
