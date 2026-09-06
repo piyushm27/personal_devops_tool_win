@@ -1,0 +1,209 @@
+<Window x:Class="KanbanApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:KanbanApp"
+        xmlns:models="clr-namespace:KanbanApp.Models"
+        mc:Ignorable="d"
+        Title="Kanban" Height="600" Width="1000"
+        Background="#1E1E1E"
+        AllowDrop="True" PreviewDragOver="Window_PreviewDragOver">
+
+    <Window.Resources>
+        <Style x:Key="CardBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="#3C3C3F" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="8" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <!-- Smuggles the MainViewModel into Tag so the ContextMenu (a
+                 separate visual tree) can reach its commands via PlacementTarget. -->
+            <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
+            <Setter Property="AllowDrop" Value="True" />
+            <EventSetter Event="PreviewMouseLeftButtonDown" Handler="Card_PreviewMouseLeftButtonDown" />
+            <EventSetter Event="PreviewMouseMove" Handler="Card_PreviewMouseMove" />
+            <EventSetter Event="DragOver" Handler="Card_DragOver" />
+            <EventSetter Event="Drop" Handler="Card_Drop" />
+            <Setter Property="ContextMenu">
+                <Setter.Value>
+                    <ContextMenu>
+                        <MenuItem Header="Edit"
+                                  Command="{Binding PlacementTarget.Tag.EditTaskCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                        <MenuItem Header="Shift Down in Priority"
+                                  Command="{Binding PlacementTarget.Tag.ShiftDownCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                        <MenuItem Header="Delete"
+                                  Command="{Binding PlacementTarget.Tag.DeleteTaskCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                    </ContextMenu>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="MoveButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+        </Style>
+
+        <!-- Parked cards can only move back to To Do; that's the sole way
+             out of the WIP-overflow "park it instead" flow. -->
+        <DataTemplate x:Key="ParkedCardTemplate" DataType="{x:Type models:TaskItem}">
+            <Border Style="{StaticResource CardBorderStyle}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="To Do →" Style="{StaticResource MoveButtonStyle}"
+                            Command="{Binding DataContext.MoveToToDoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            CommandParameter="{Binding}" />
+                    <TextBlock Text="{Binding Title}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" />
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- Moving to In Progress is gated by the WIP limit in MainViewModel. -->
+        <DataTemplate x:Key="ToDoCardTemplate" DataType="{x:Type models:TaskItem}">
+            <Border Style="{StaticResource CardBorderStyle}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Start →" Style="{StaticResource MoveButtonStyle}"
+                            Command="{Binding DataContext.MoveToInProgressCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            CommandParameter="{Binding}" />
+                    <TextBlock Text="{Binding Title}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" />
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="InProgressCardTemplate" DataType="{x:Type models:TaskItem}">
+            <Border Style="{StaticResource CardBorderStyle}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Done →" Style="{StaticResource MoveButtonStyle}"
+                            Command="{Binding DataContext.MoveToDoneCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            CommandParameter="{Binding}" />
+                    <TextBlock Text="{Binding Title}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" />
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- Done is a terminal state for now; no move button. -->
+        <DataTemplate x:Key="DoneCardTemplate" DataType="{x:Type models:TaskItem}">
+            <Border Style="{StaticResource CardBorderStyle}">
+                <TextBlock Text="{Binding Title}" Foreground="White" TextWrapping="Wrap" />
+            </Border>
+        </DataTemplate>
+
+        <!-- Status accent colors: gray/neutral -> amber -> green mirrors the
+             To Do / In Progress / Done convention common to Jira, Azure DevOps,
+             and Trello. Parked uses a violet "on hold" accent since it sits
+             outside that standard three. -->
+        <SolidColorBrush x:Key="ParkedAccentBrush" Color="#9B8FC9" />
+        <SolidColorBrush x:Key="ToDoAccentBrush" Color="#8C9BAB" />
+        <SolidColorBrush x:Key="InProgressAccentBrush" Color="#E0A94D" />
+        <SolidColorBrush x:Key="DoneAccentBrush" Color="#6FBF83" />
+
+        <!-- Midpoint between each ribbon accent and the base dark background,
+             so the column reads as tinted without going full-dark or full-bright. -->
+        <SolidColorBrush x:Key="ParkedBackgroundBrush" Color="#61597C" />
+        <SolidColorBrush x:Key="ToDoBackgroundBrush" Color="#58636D" />
+        <SolidColorBrush x:Key="InProgressBackgroundBrush" Color="#8A6B36" />
+        <SolidColorBrush x:Key="DoneBackgroundBrush" Color="#477554" />
+
+        <Style x:Key="ColumnHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Margin" Value="4,0,4,8" />
+        </Style>
+
+        <Style x:Key="ColumnBorderStyle" TargetType="Border">
+            <Setter Property="Margin" Value="4" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="BorderThickness" Value="0,3,0,0" />
+            <Setter Property="Padding" Value="8" />
+        </Style>
+    </Window.Resources>
+
+    <DockPanel Margin="12">
+        <Border DockPanel.Dock="Top" Background="#2D2D30" CornerRadius="6" Padding="8" Margin="0,0,0,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0"
+                         Text="{Binding NewTaskTitle, UpdateSourceTrigger=PropertyChanged}"
+                         Background="#3C3C3F" Foreground="White" BorderThickness="0"
+                         Padding="6" VerticalContentAlignment="Center"
+                         CaretBrush="White">
+                    <TextBox.InputBindings>
+                        <KeyBinding Key="Return" Command="{Binding AddTaskCommand}" />
+                    </TextBox.InputBindings>
+                </TextBox>
+                <Button Grid.Column="1" Content="Add Task" Command="{Binding AddTaskCommand}"
+                        Margin="8,0,0,0" Padding="12,6" />
+            </Grid>
+        </Border>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Parked -->
+        <Border Grid.Column="0" Style="{StaticResource ColumnBorderStyle}" BorderBrush="{StaticResource ParkedAccentBrush}" Background="{StaticResource ParkedBackgroundBrush}"
+                Tag="{x:Static models:ColumnType.Parked}" AllowDrop="True" DragOver="Column_DragOver" Drop="Column_Drop">
+            <DockPanel LastChildFill="True">
+                <TextBlock DockPanel.Dock="Top" Text="Parked" Style="{StaticResource ColumnHeaderStyle}" Foreground="{StaticResource ParkedAccentBrush}" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding ParkedTasks}" ItemTemplate="{StaticResource ParkedCardTemplate}" />
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- To Do -->
+        <Border Grid.Column="1" Style="{StaticResource ColumnBorderStyle}" BorderBrush="{StaticResource ToDoAccentBrush}" Background="{StaticResource ToDoBackgroundBrush}"
+                Tag="{x:Static models:ColumnType.ToDo}" AllowDrop="True" DragOver="Column_DragOver" Drop="Column_Drop">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                    <TextBlock Text="To Do" Style="{StaticResource ColumnHeaderStyle}" Foreground="{StaticResource ToDoAccentBrush}" />
+                    <TextBlock Text="limit" Foreground="#CCCCCC" FontSize="11" VerticalAlignment="Center" Margin="6,0,4,8" />
+                    <TextBox Text="{Binding MaxToDo, UpdateSourceTrigger=PropertyChanged}"
+                             Width="28" Background="#3C3C3F" Foreground="White" BorderThickness="0"
+                             TextAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,8" CaretBrush="White" />
+                </StackPanel>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding ToDoTasks}" ItemTemplate="{StaticResource ToDoCardTemplate}" />
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- In Progress -->
+        <Border Grid.Column="2" Style="{StaticResource ColumnBorderStyle}" BorderBrush="{StaticResource InProgressAccentBrush}" Background="{StaticResource InProgressBackgroundBrush}"
+                Tag="{x:Static models:ColumnType.InProgress}" AllowDrop="True" DragOver="Column_DragOver" Drop="Column_Drop">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                    <TextBlock Text="In Progress" Style="{StaticResource ColumnHeaderStyle}" Foreground="{StaticResource InProgressAccentBrush}" />
+                    <TextBlock Text="limit" Foreground="#CCCCCC" FontSize="11" VerticalAlignment="Center" Margin="6,0,4,8" />
+                    <TextBox Text="{Binding MaxInProgress, UpdateSourceTrigger=PropertyChanged}"
+                             Width="28" Background="#3C3C3F" Foreground="White" BorderThickness="0"
+                             TextAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,8" CaretBrush="White" />
+                </StackPanel>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding InProgressTasks}" ItemTemplate="{StaticResource InProgressCardTemplate}" />
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- Done -->
+        <Border Grid.Column="3" Style="{StaticResource ColumnBorderStyle}" BorderBrush="{StaticResource DoneAccentBrush}" Background="{StaticResource DoneBackgroundBrush}"
+                Tag="{x:Static models:ColumnType.Done}" AllowDrop="True" DragOver="Column_DragOver" Drop="Column_Drop">
+            <DockPanel LastChildFill="True">
+                <TextBlock DockPanel.Dock="Top" Text="Done" Style="{StaticResource ColumnHeaderStyle}" Foreground="{StaticResource DoneAccentBrush}" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding DoneTasks}" ItemTemplate="{StaticResource DoneCardTemplate}" />
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </Grid>
+    </DockPanel>
+</Window>
