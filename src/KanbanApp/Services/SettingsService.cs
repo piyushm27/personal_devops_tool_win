@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 
@@ -8,6 +9,7 @@ public class AppSettings
 {
     public int MaxToDo { get; set; } = 3;
     public int MaxInProgress { get; set; } = 3;
+    public List<string> KnownIdentities { get; set; } = new();
 }
 
 public class SettingsService

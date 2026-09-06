@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -14,10 +15,13 @@ namespace KanbanApp.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
+    private static readonly Regex MentionRegex = new(@"@(\w+)", RegexOptions.Compiled);
+
     private readonly TaskStorageService _taskStorage = new();
     private readonly SettingsService _settingsService = new();
 
     public ObservableCollection<TaskItem> Tasks { get; } = new();
+    public ObservableCollection<string> Identities { get; } = new();
 
     public ICollectionView ToDoTasks { get; }
     public ICollectionView InProgressTasks { get; }
@@ -39,6 +43,10 @@ public partial class MainViewModel : ObservableObject
         var settings = _settingsService.Load();
         maxToDo = settings.MaxToDo;
         maxInProgress = settings.MaxInProgress;
+        foreach (var identity in settings.KnownIdentities)
+        {
+            Identities.Add(identity);
+        }
         _settingsService.Save(settings);
 
         Tasks.CollectionChanged += Tasks_CollectionChanged;
@@ -91,11 +99,33 @@ public partial class MainViewModel : ObservableObject
 
     private void SaveTasks() => _taskStorage.Save(Tasks);
 
-    partial void OnMaxToDoChanged(int value) =>
-        _settingsService.Save(new AppSettings { MaxToDo = value, MaxInProgress = MaxInProgress });
+    private void SaveSettings() =>
+        _settingsService.Save(new AppSettings { MaxToDo = MaxToDo, MaxInProgress = MaxInProgress, KnownIdentities = Identities.ToList() });
 
-    partial void OnMaxInProgressChanged(int value) =>
-        _settingsService.Save(new AppSettings { MaxToDo = MaxToDo, MaxInProgress = value });
+    partial void OnMaxToDoChanged(int value) => SaveSettings();
+
+    partial void OnMaxInProgressChanged(int value) => SaveSettings();
+
+    /// Scans text for "@word" tokens and adds any not already known,
+    /// so they show up as suggestions the next time "@" is typed anywhere.
+    private void LearnMentions(string text)
+    {
+        var learnedAny = false;
+        foreach (Match match in MentionRegex.Matches(text))
+        {
+            var name = match.Groups[1].Value;
+            if (!Identities.Contains(name, StringComparer.OrdinalIgnoreCase))
+            {
+                Identities.Add(name);
+                learnedAny = true;
+            }
+        }
+
+        if (learnedAny)
+        {
+            SaveSettings();
+        }
+    }
 
     private ICollectionView CreateFilteredView(ColumnType column)
     {
@@ -117,7 +147,9 @@ public partial class MainViewModel : ObservableObject
     private void AddTask()
     {
         var column = ToDoHasRoom() ? ColumnType.ToDo : ColumnType.Parked;
-        Tasks.Add(new TaskItem(NewTaskTitle.Trim(), column));
+        var title = NewTaskTitle.Trim();
+        Tasks.Add(new TaskItem(title, column));
+        LearnMentions(title);
         NewTaskTitle = string.Empty;
 
         if (column == ColumnType.Parked)
@@ -171,7 +203,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (!string.IsNullOrWhiteSpace(updatedTitle))
         {
-            task.Title = updatedTitle;
+            UpdateTaskTitle(task, updatedTitle);
         }
 
         if (ToDoHasRoom())
@@ -205,5 +237,27 @@ public partial class MainViewModel : ObservableObject
         }
 
         task.Column = ColumnType.ToDo;
+    }
+
+    public void UpdateTaskTitle(TaskItem task, string newTitle)
+    {
+        task.Title = newTitle;
+        LearnMentions(newTitle);
+    }
+
+    public void AddComment(TaskItem task, string text)
+    {
+        task.Comments.Add(new TaskComment { Text = text });
+        LearnMentions(text);
+        SaveTasks();
+    }
+
+    public void OpenTaskDetail(TaskItem task)
+    {
+        var window = new TaskDetailWindow(task, this)
+        {
+            Owner = Application.Current.MainWindow
+        };
+        window.ShowDialog();
     }
 }

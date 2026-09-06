@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -9,11 +10,22 @@ public partial class TaskItem : ObservableObject
     public DateTime CreatedAt { get; init; } = DateTime.Now;
     public int Order { get; set; }
 
+    public ObservableCollection<TaskComment> Comments { get; init; } = new();
+
     [ObservableProperty]
     private string title;
 
     [ObservableProperty]
     private ColumnType column;
+
+    [ObservableProperty]
+    private double originalEstimate;
+
+    [ObservableProperty]
+    private double completedWork;
+
+    [ObservableProperty]
+    private double remainingWork;
 
     [JsonConstructor]
     public TaskItem(string title, ColumnType column)
