@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -8,6 +9,8 @@ public partial class TaskItem : ObservableObject
     public Guid Id { get; init; } = Guid.NewGuid();
     public DateTime CreatedAt { get; init; } = DateTime.Now;
 
+    public ObservableCollection<TaskComment> Comments { get; init; } = new();
+
     [ObservableProperty]
     private string title;
 
@@ -15,6 +18,13 @@ public partial class TaskItem : ObservableObject
     private ColumnType column;
 
     [ObservableProperty]
+    private double originalEstimate;
+
+    [ObservableProperty]
+    private double completedWork;
+
+    [ObservableProperty]
+    private double remainingWork;
     private int order;
 
     [JsonConstructor]

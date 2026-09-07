@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:KanbanApp"
         xmlns:models="clr-namespace:KanbanApp.Models"
+        xmlns:views="clr-namespace:KanbanApp.Views"
         mc:Ignorable="d"
         Title="Kanban" Height="600" Width="1000"
         Background="#1E1E1E"
@@ -16,6 +17,7 @@
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="Padding" Value="8" />
             <Setter Property="Margin" Value="0,0,0,6" />
+            <EventSetter Event="MouseLeftButtonDown" Handler="Card_MouseLeftButtonDown" />
             <!-- Smuggles the MainViewModel into Tag so the ContextMenu (a
                  separate visual tree) can reach its commands via PlacementTarget. -->
             <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
@@ -127,15 +129,13 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBox Grid.Column="0"
+                <views:MentionTextBox Grid.Column="0"
                          Text="{Binding NewTaskTitle, UpdateSourceTrigger=PropertyChanged}"
-                         Background="#3C3C3F" Foreground="White" BorderThickness="0"
-                         Padding="6" VerticalContentAlignment="Center"
-                         CaretBrush="White">
-                    <TextBox.InputBindings>
+                         Identities="{Binding Identities}">
+                    <views:MentionTextBox.InputBindings>
                         <KeyBinding Key="Return" Command="{Binding AddTaskCommand}" />
-                    </TextBox.InputBindings>
-                </TextBox>
+                    </views:MentionTextBox.InputBindings>
+                </views:MentionTextBox>
                 <Button Grid.Column="1" Content="Add Task" Command="{Binding AddTaskCommand}"
                         Margin="8,0,0,0" Padding="12,6" />
             </Grid>
