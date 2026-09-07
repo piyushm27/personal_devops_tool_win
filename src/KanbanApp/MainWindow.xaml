@@ -14,6 +14,7 @@
 
     <Window.Resources>
         <converters:CountToVisibilityConverter x:Key="CountToVisibilityConverter" />
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
 
         <Style x:Key="EmptyColumnMessageStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="#999999" />
@@ -134,21 +135,25 @@
         </Style>
     </Window.Resources>
 
+    <Grid>
     <DockPanel Margin="12">
         <Border DockPanel.Dock="Top" Background="#2D2D30" CornerRadius="6" Padding="8" Margin="0,0,0,8">
             <Grid>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <views:MentionTextBox Grid.Column="0"
+                <Button Grid.Column="0" Content="☰" FontSize="16" Padding="10,4" Margin="0,0,8,0"
+                        Command="{Binding ToggleMenuCommand}" />
+                <views:MentionTextBox Grid.Column="1"
                          Text="{Binding NewTaskTitle, UpdateSourceTrigger=PropertyChanged}"
                          Identities="{Binding Identities}">
                     <views:MentionTextBox.InputBindings>
                         <KeyBinding Key="Return" Command="{Binding AddTaskCommand}" />
                     </views:MentionTextBox.InputBindings>
                 </views:MentionTextBox>
-                <Button Grid.Column="1" Content="Add Task" Command="{Binding AddTaskCommand}"
+                <Button Grid.Column="2" Content="Add Task" Command="{Binding AddTaskCommand}"
                         Margin="8,0,0,0" Padding="12,6" />
             </Grid>
         </Border>
@@ -237,4 +242,18 @@
         </Border>
     </Grid>
     </DockPanel>
+
+        <!-- Scrim: greys out the board and closes the menu on click. -->
+        <Border Background="#CC000000" Visibility="{Binding IsMenuOpen, Converter={StaticResource BoolToVisibilityConverter}}"
+                MouseLeftButtonDown="Scrim_MouseLeftButtonDown" />
+
+        <!-- Drawer -->
+        <Border Width="240" HorizontalAlignment="Left" Background="#2D2D30"
+                Visibility="{Binding IsMenuOpen, Converter={StaticResource BoolToVisibilityConverter}}">
+            <StackPanel Margin="16">
+                <TextBlock Text="Menu" Foreground="White" FontSize="16" FontWeight="Bold" Margin="0,0,0,16" />
+                <Button Content="Archives" Command="{Binding OpenArchivesCommand}" HorizontalAlignment="Stretch" Padding="10,8" HorizontalContentAlignment="Left" />
+            </StackPanel>
+        </Border>
+    </Grid>
 </Window>
