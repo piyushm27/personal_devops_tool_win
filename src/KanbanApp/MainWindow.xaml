@@ -8,7 +8,8 @@
         xmlns:views="clr-namespace:KanbanApp.Views"
         mc:Ignorable="d"
         Title="Kanban" Height="600" Width="1000"
-        Background="#1E1E1E">
+        Background="#1E1E1E"
+        AllowDrop="True" PreviewDragOver="Window_PreviewDragOver">
 
     <Window.Resources>
         <Style x:Key="CardBorderStyle" TargetType="Border">
@@ -17,6 +18,29 @@
             <Setter Property="Padding" Value="8" />
             <Setter Property="Margin" Value="0,0,0,6" />
             <EventSetter Event="MouseLeftButtonDown" Handler="Card_MouseLeftButtonDown" />
+            <!-- Smuggles the MainViewModel into Tag so the ContextMenu (a
+                 separate visual tree) can reach its commands via PlacementTarget. -->
+            <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
+            <Setter Property="AllowDrop" Value="True" />
+            <EventSetter Event="PreviewMouseLeftButtonDown" Handler="Card_PreviewMouseLeftButtonDown" />
+            <EventSetter Event="PreviewMouseMove" Handler="Card_PreviewMouseMove" />
+            <EventSetter Event="DragOver" Handler="Card_DragOver" />
+            <EventSetter Event="Drop" Handler="Card_Drop" />
+            <Setter Property="ContextMenu">
+                <Setter.Value>
+                    <ContextMenu>
+                        <MenuItem Header="Edit"
+                                  Command="{Binding PlacementTarget.Tag.EditTaskCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                        <MenuItem Header="Shift Down in Priority"
+                                  Command="{Binding PlacementTarget.Tag.ShiftDownCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                        <MenuItem Header="Delete"
+                                  Command="{Binding PlacementTarget.Tag.DeleteTaskCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                    </ContextMenu>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="MoveButtonStyle" TargetType="Button">
@@ -126,7 +150,8 @@
         </Grid.ColumnDefinitions>
 
         <!-- Parked -->
-        <Border Grid.Column="0" Style="{StaticResource ColumnBorderStyle}" BorderBrush="{StaticResource ParkedAccentBrush}" Background="{StaticResource ParkedBackgroundBrush}">
+        <Border Grid.Column="0" Style="{StaticResource ColumnBorderStyle}" BorderBrush="{StaticResource ParkedAccentBrush}" Background="{StaticResource ParkedBackgroundBrush}"
+                Tag="{x:Static models:ColumnType.Parked}" AllowDrop="True" DragOver="Column_DragOver" Drop="Column_Drop">
             <DockPanel LastChildFill="True">
                 <TextBlock DockPanel.Dock="Top" Text="Parked" Style="{StaticResource ColumnHeaderStyle}" Foreground="{StaticResource ParkedAccentBrush}" />
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -136,7 +161,8 @@
         </Border>
 
         <!-- To Do -->
-        <Border Grid.Column="1" Style="{StaticResource ColumnBorderStyle}" BorderBrush="{StaticResource ToDoAccentBrush}" Background="{StaticResource ToDoBackgroundBrush}">
+        <Border Grid.Column="1" Style="{StaticResource ColumnBorderStyle}" BorderBrush="{StaticResource ToDoAccentBrush}" Background="{StaticResource ToDoBackgroundBrush}"
+                Tag="{x:Static models:ColumnType.ToDo}" AllowDrop="True" DragOver="Column_DragOver" Drop="Column_Drop">
             <DockPanel LastChildFill="True">
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
                     <TextBlock Text="To Do" Style="{StaticResource ColumnHeaderStyle}" Foreground="{StaticResource ToDoAccentBrush}" />
@@ -152,7 +178,8 @@
         </Border>
 
         <!-- In Progress -->
-        <Border Grid.Column="2" Style="{StaticResource ColumnBorderStyle}" BorderBrush="{StaticResource InProgressAccentBrush}" Background="{StaticResource InProgressBackgroundBrush}">
+        <Border Grid.Column="2" Style="{StaticResource ColumnBorderStyle}" BorderBrush="{StaticResource InProgressAccentBrush}" Background="{StaticResource InProgressBackgroundBrush}"
+                Tag="{x:Static models:ColumnType.InProgress}" AllowDrop="True" DragOver="Column_DragOver" Drop="Column_Drop">
             <DockPanel LastChildFill="True">
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
                     <TextBlock Text="In Progress" Style="{StaticResource ColumnHeaderStyle}" Foreground="{StaticResource InProgressAccentBrush}" />
@@ -168,7 +195,8 @@
         </Border>
 
         <!-- Done -->
-        <Border Grid.Column="3" Style="{StaticResource ColumnBorderStyle}" BorderBrush="{StaticResource DoneAccentBrush}" Background="{StaticResource DoneBackgroundBrush}">
+        <Border Grid.Column="3" Style="{StaticResource ColumnBorderStyle}" BorderBrush="{StaticResource DoneAccentBrush}" Background="{StaticResource DoneBackgroundBrush}"
+                Tag="{x:Static models:ColumnType.Done}" AllowDrop="True" DragOver="Column_DragOver" Drop="Column_Drop">
             <DockPanel LastChildFill="True">
                 <TextBlock DockPanel.Dock="Top" Text="Done" Style="{StaticResource ColumnHeaderStyle}" Foreground="{StaticResource DoneAccentBrush}" />
                 <ScrollViewer VerticalScrollBarVisibility="Auto">

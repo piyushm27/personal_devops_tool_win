@@ -8,7 +8,6 @@ public partial class TaskItem : ObservableObject
 {
     public Guid Id { get; init; } = Guid.NewGuid();
     public DateTime CreatedAt { get; init; } = DateTime.Now;
-    public int Order { get; set; }
 
     public ObservableCollection<TaskComment> Comments { get; init; } = new();
 
@@ -26,6 +25,7 @@ public partial class TaskItem : ObservableObject
 
     [ObservableProperty]
     private double remainingWork;
+    private int order;
 
     [JsonConstructor]
     public TaskItem(string title, ColumnType column)
