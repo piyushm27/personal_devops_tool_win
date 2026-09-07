@@ -32,6 +32,9 @@ public partial class TaskItem : ObservableObject
     [ObservableProperty]
     private DateTime? completedAt;
 
+    [ObservableProperty]
+    private DateTime? archivedAt;
+
     [JsonConstructor]
     public TaskItem(string title, ColumnType column)
     {

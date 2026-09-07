@@ -121,4 +121,12 @@ public partial class MainWindow : Window
 
         viewModel.MoveTask(task, targetColumn, null);
     }
+
+    private void Scrim_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel)
+        {
+            viewModel.CloseMenuCommand.Execute(null);
+        }
+    }
 }

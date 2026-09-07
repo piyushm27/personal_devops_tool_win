@@ -17,11 +17,15 @@ public partial class MainViewModel : ObservableObject
 {
     private static readonly Regex MentionRegex = new(@"@(\w+)", RegexOptions.Compiled);
 
+    private const int ArchiveAfterDays = 7;
+
     private readonly TaskStorageService _taskStorage = new();
     private readonly SettingsService _settingsService = new();
+    private readonly ArchiveStorageService _archiveStorage = new();
 
     public ObservableCollection<TaskItem> Tasks { get; } = new();
     public ObservableCollection<string> Identities { get; } = new();
+    public ObservableCollection<TaskItem> ArchivedTasks { get; } = new();
 
     public ICollectionView ToDoTasks { get; }
     public ICollectionView InProgressTasks { get; }
@@ -40,6 +44,9 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private int completedTodayCount;
+
+    [ObservableProperty]
+    private bool isMenuOpen;
 
     public MainViewModel()
     {
@@ -70,6 +77,13 @@ public partial class MainViewModel : ObservableObject
             Tasks.Add(new TaskItem("Add move buttons", ColumnType.ToDo));
             Tasks.Add(new TaskItem("Write WIP limit logic", ColumnType.ToDo));
         }
+
+        foreach (var archived in _archiveStorage.Load())
+        {
+            ArchivedTasks.Add(archived);
+        }
+
+        ArchiveOldDoneTasks();
 
         // Normalizes Order to a clean 0..N-1 sequence per column, fixing
         // legacy/default values from before Order was tracked, or from a
@@ -116,6 +130,34 @@ public partial class MainViewModel : ObservableObject
     }
 
     private void SaveTasks() => _taskStorage.Save(Tasks);
+
+    private void SaveArchive() => _archiveStorage.Save(ArchivedTasks);
+
+    /// Moves any Done task completed more than ArchiveAfterDays ago out of
+    /// the active board and into the archive, so Done doesn't grow forever.
+    /// Runs once at startup; this app isn't left running across days at a
+    /// stretch, so a periodic in-session sweep isn't worth the complexity.
+    private void ArchiveOldDoneTasks()
+    {
+        var cutoff = DateTime.Now.AddDays(-ArchiveAfterDays);
+        var toArchive = Tasks
+            .Where(t => t.Column == ColumnType.Done && t.CompletedAt is not null && t.CompletedAt < cutoff)
+            .ToList();
+
+        if (toArchive.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var task in toArchive)
+        {
+            Tasks.Remove(task);
+            task.ArchivedAt = DateTime.Now;
+            ArchivedTasks.Add(task);
+        }
+
+        SaveArchive();
+    }
 
     private void RecomputeCompletedTodayCount()
     {
@@ -412,6 +454,23 @@ public partial class MainViewModel : ObservableObject
     public void OpenTaskDetail(TaskItem task)
     {
         var window = new TaskDetailWindow(task, this)
+        {
+            Owner = Application.Current.MainWindow
+        };
+        window.ShowDialog();
+    }
+
+    [RelayCommand]
+    private void ToggleMenu() => IsMenuOpen = !IsMenuOpen;
+
+    [RelayCommand]
+    private void CloseMenu() => IsMenuOpen = false;
+
+    [RelayCommand]
+    private void OpenArchives()
+    {
+        IsMenuOpen = false;
+        var window = new ArchiveWindow(ArchivedTasks)
         {
             Owner = Application.Current.MainWindow
         };
