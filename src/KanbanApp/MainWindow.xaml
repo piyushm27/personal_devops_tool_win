@@ -6,12 +6,24 @@
         xmlns:local="clr-namespace:KanbanApp"
         xmlns:models="clr-namespace:KanbanApp.Models"
         xmlns:views="clr-namespace:KanbanApp.Views"
+        xmlns:converters="clr-namespace:KanbanApp.Converters"
         mc:Ignorable="d"
         Title="Kanban" Height="600" Width="1000"
         Background="#1E1E1E"
         AllowDrop="True" PreviewDragOver="Window_PreviewDragOver">
 
     <Window.Resources>
+        <converters:CountToVisibilityConverter x:Key="CountToVisibilityConverter" />
+
+        <Style x:Key="EmptyColumnMessageStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#999999" />
+            <Setter Property="FontStyle" Value="Italic" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Margin" Value="0,20,0,0" />
+        </Style>
+
         <Style x:Key="CardBorderStyle" TargetType="Border">
             <Setter Property="Background" Value="#3C3C3F" />
             <Setter Property="CornerRadius" Value="4" />
@@ -154,9 +166,13 @@
                 Tag="{x:Static models:ColumnType.Parked}" AllowDrop="True" DragOver="Column_DragOver" Drop="Column_Drop">
             <DockPanel LastChildFill="True">
                 <TextBlock DockPanel.Dock="Top" Text="Parked" Style="{StaticResource ColumnHeaderStyle}" Foreground="{StaticResource ParkedAccentBrush}" />
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding ParkedTasks}" ItemTemplate="{StaticResource ParkedCardTemplate}" />
-                </ScrollViewer>
+                <Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="ParkedItemsControl" ItemsSource="{Binding ParkedTasks}" ItemTemplate="{StaticResource ParkedCardTemplate}" />
+                    </ScrollViewer>
+                    <TextBlock Text="Nothing parked" Style="{StaticResource EmptyColumnMessageStyle}"
+                               Visibility="{Binding Items.Count, ElementName=ParkedItemsControl, Converter={StaticResource CountToVisibilityConverter}}" />
+                </Grid>
             </DockPanel>
         </Border>
 
@@ -171,9 +187,13 @@
                              Width="28" Background="#3C3C3F" Foreground="White" BorderThickness="0"
                              TextAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,8" CaretBrush="White" />
                 </StackPanel>
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding ToDoTasks}" ItemTemplate="{StaticResource ToDoCardTemplate}" />
-                </ScrollViewer>
+                <Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="ToDoItemsControl" ItemsSource="{Binding ToDoTasks}" ItemTemplate="{StaticResource ToDoCardTemplate}" />
+                    </ScrollViewer>
+                    <TextBlock Text="No tasks yet" Style="{StaticResource EmptyColumnMessageStyle}"
+                               Visibility="{Binding Items.Count, ElementName=ToDoItemsControl, Converter={StaticResource CountToVisibilityConverter}}" />
+                </Grid>
             </DockPanel>
         </Border>
 
@@ -188,9 +208,13 @@
                              Width="28" Background="#3C3C3F" Foreground="White" BorderThickness="0"
                              TextAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,8" CaretBrush="White" />
                 </StackPanel>
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding InProgressTasks}" ItemTemplate="{StaticResource InProgressCardTemplate}" />
-                </ScrollViewer>
+                <Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="InProgressItemsControl" ItemsSource="{Binding InProgressTasks}" ItemTemplate="{StaticResource InProgressCardTemplate}" />
+                    </ScrollViewer>
+                    <TextBlock Text="Nothing in progress" Style="{StaticResource EmptyColumnMessageStyle}"
+                               Visibility="{Binding Items.Count, ElementName=InProgressItemsControl, Converter={StaticResource CountToVisibilityConverter}}" />
+                </Grid>
             </DockPanel>
         </Border>
 
@@ -198,10 +222,17 @@
         <Border Grid.Column="3" Style="{StaticResource ColumnBorderStyle}" BorderBrush="{StaticResource DoneAccentBrush}" Background="{StaticResource DoneBackgroundBrush}"
                 Tag="{x:Static models:ColumnType.Done}" AllowDrop="True" DragOver="Column_DragOver" Drop="Column_Drop">
             <DockPanel LastChildFill="True">
-                <TextBlock DockPanel.Dock="Top" Text="Done" Style="{StaticResource ColumnHeaderStyle}" Foreground="{StaticResource DoneAccentBrush}" />
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding DoneTasks}" ItemTemplate="{StaticResource DoneCardTemplate}" />
-                </ScrollViewer>
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                    <TextBlock Text="Done" Style="{StaticResource ColumnHeaderStyle}" Foreground="{StaticResource DoneAccentBrush}" />
+                    <TextBlock Text="{Binding CompletedTodayCount, StringFormat='({0} today)'}" Foreground="#CCCCCC" FontSize="11" VerticalAlignment="Center" Margin="6,0,4,8" />
+                </StackPanel>
+                <Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="DoneItemsControl" ItemsSource="{Binding DoneTasks}" ItemTemplate="{StaticResource DoneCardTemplate}" />
+                    </ScrollViewer>
+                    <TextBlock Text="Nothing done yet" Style="{StaticResource EmptyColumnMessageStyle}"
+                               Visibility="{Binding Items.Count, ElementName=DoneItemsControl, Converter={StaticResource CountToVisibilityConverter}}" />
+                </Grid>
             </DockPanel>
         </Border>
     </Grid>

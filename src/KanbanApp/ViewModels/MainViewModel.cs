@@ -38,6 +38,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private int maxToDo = 3;
 
+    [ObservableProperty]
+    private int completedTodayCount;
+
     public MainViewModel()
     {
         var settings = _settingsService.Load();
@@ -80,6 +83,8 @@ public partial class MainViewModel : ObservableObject
         InProgressTasks = CreateFilteredView(ColumnType.InProgress);
         DoneTasks = CreateFilteredView(ColumnType.Done);
         ParkedTasks = CreateFilteredView(ColumnType.Parked);
+
+        RecomputeCompletedTodayCount();
     }
 
     private void Tasks_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -101,11 +106,22 @@ public partial class MainViewModel : ObservableObject
         }
 
         SaveTasks();
+        RecomputeCompletedTodayCount();
     }
 
-    private void Task_PropertyChanged(object? sender, PropertyChangedEventArgs e) => SaveTasks();
+    private void Task_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        SaveTasks();
+        RecomputeCompletedTodayCount();
+    }
 
     private void SaveTasks() => _taskStorage.Save(Tasks);
+
+    private void RecomputeCompletedTodayCount()
+    {
+        var today = DateTime.Today;
+        CompletedTodayCount = Tasks.Count(t => t.Column == ColumnType.Done && t.CompletedAt?.Date == today);
+    }
 
     private void SaveSettings() =>
         _settingsService.Save(new AppSettings { MaxToDo = MaxToDo, MaxInProgress = MaxInProgress, KnownIdentities = Identities.ToList() });

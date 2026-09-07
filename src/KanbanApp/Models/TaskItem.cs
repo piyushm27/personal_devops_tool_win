@@ -29,10 +29,21 @@ public partial class TaskItem : ObservableObject
     [ObservableProperty]
     private int order;
 
+    [ObservableProperty]
+    private DateTime? completedAt;
+
     [JsonConstructor]
     public TaskItem(string title, ColumnType column)
     {
         this.title = title;
         this.column = column;
+    }
+
+    partial void OnColumnChanged(ColumnType value)
+    {
+        if (value == ColumnType.Done)
+        {
+            CompletedAt = DateTime.Now;
+        }
     }
 }
