@@ -34,6 +34,12 @@ public partial class MentionTextBox : UserControl
         InitializeComponent();
     }
 
+    public void FocusAndSelectAll()
+    {
+        InnerTextBox.Focus();
+        InnerTextBox.SelectAll();
+    }
+
     private static void OnTextPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         var control = (MentionTextBox)d;

@@ -163,11 +163,10 @@ public partial class MainViewModel : ObservableObject
     {
         var column = ToDoHasRoom() ? ColumnType.ToDo : ColumnType.Parked;
         var title = NewTaskTitle.Trim();
-        Tasks.Add(new TaskItem(title, column));
-        LearnMentions(title);
-        var newTask = new TaskItem(NewTaskTitle.Trim(), column);
+        var newTask = new TaskItem(title, column);
         Tasks.Add(newTask);
         AppendToEnd(newTask);
+        LearnMentions(title);
         NewTaskTitle = string.Empty;
 
         if (column == ColumnType.Parked)
@@ -351,14 +350,14 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void EditTask(TaskItem task)
     {
-        var dialog = new EditTaskDialog(task.Title)
+        var dialog = new EditTaskDialog(task.Title, Identities)
         {
             Owner = Application.Current.MainWindow
         };
 
         if (dialog.ShowDialog() == true && dialog.UpdatedTitle is not null)
         {
-            task.Title = dialog.UpdatedTitle;
+            UpdateTaskTitle(task, dialog.UpdatedTitle);
         }
     }
 

@@ -36,6 +36,8 @@ public partial class MainWindow : Window
         if (DataContext is not MainViewModel viewModel) return;
 
         viewModel.OpenTaskDetail(task);
+    }
+
     private void Card_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _dragStartPoint = e.GetPosition(null);

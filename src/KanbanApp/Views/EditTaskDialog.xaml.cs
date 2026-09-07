@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Windows;
 
 namespace KanbanApp.Views;
@@ -6,12 +7,12 @@ public partial class EditTaskDialog : Window
 {
     public string? UpdatedTitle { get; private set; }
 
-    public EditTaskDialog(string currentTitle)
+    public EditTaskDialog(string currentTitle, IEnumerable<string>? identities = null)
     {
         InitializeComponent();
+        TitleBox.Identities = identities;
         TitleBox.Text = currentTitle;
-        TitleBox.Focus();
-        TitleBox.SelectAll();
+        TitleBox.FocusAndSelectAll();
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)

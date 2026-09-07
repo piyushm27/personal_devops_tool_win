@@ -25,6 +25,8 @@ public partial class TaskItem : ObservableObject
 
     [ObservableProperty]
     private double remainingWork;
+
+    [ObservableProperty]
     private int order;
 
     [JsonConstructor]
